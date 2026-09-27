@@ -66,6 +66,9 @@ class FakeScute:
         if path == "/v1/auth/app1/tokens/refresh":
             return ok({"access": "new", "seen_refresh": request.headers.get("x-refresh-token")})
         if path == "/v1/auth/app1/authz/check":
+            if body["action"] == "delete":
+                return ok({"decision": "deny", "reason": "no_role_grants_permission", "explanation": "Ada can't delete invoices.",
+                           "echo": body})
             return ok({"decision": "allow", "reason": "role_grant", "permission": "invoice:read", "roles": ["clerk"], "echo": body})
         if not secret:
             return ok({"error": "Unauthorized"}, 401)
