@@ -1,0 +1,2716 @@
+{
+  "about": "Scute authorization conformance vectors: local evaluators must reproduce every expect.",
+  "policy": {
+    "permissions": {
+      "document:read": {
+        "enabled": true,
+        "resource": "document",
+        "action": "read",
+        "requires_verification": false,
+        "verification_method": null,
+        "verification_ttl": null,
+        "requires_approval": false,
+        "autonomous_allowed": false
+      },
+      "invoice:approve": {
+        "enabled": true,
+        "resource": "invoice",
+        "action": "approve",
+        "requires_verification": false,
+        "verification_method": null,
+        "verification_ttl": null,
+        "requires_approval": false,
+        "autonomous_allowed": false
+      },
+      "invoice:read": {
+        "enabled": true,
+        "resource": "invoice",
+        "action": "read",
+        "requires_verification": false,
+        "verification_method": null,
+        "verification_ttl": null,
+        "requires_approval": false,
+        "autonomous_allowed": false
+      },
+      "document:delete": {
+        "enabled": true,
+        "resource": "document",
+        "action": "delete",
+        "requires_verification": true,
+        "verification_method": "any",
+        "verification_ttl": 300,
+        "requires_approval": false,
+        "autonomous_allowed": false
+      },
+      "document:edit": {
+        "enabled": true,
+        "resource": "document",
+        "action": "edit",
+        "requires_verification": false,
+        "verification_method": null,
+        "verification_ttl": null,
+        "requires_approval": false,
+        "autonomous_allowed": false,
+        "blocked_while_impersonating": true
+      },
+      "invoice:export": {
+        "enabled": false,
+        "resource": "invoice",
+        "action": "export",
+        "requires_verification": false,
+        "verification_method": null,
+        "verification_ttl": null,
+        "requires_approval": false,
+        "autonomous_allowed": false
+      },
+      "invoice:pay": {
+        "enabled": true,
+        "resource": "invoice",
+        "action": "pay",
+        "requires_verification": false,
+        "verification_method": null,
+        "verification_ttl": null,
+        "requires_approval": true,
+        "autonomous_allowed": false
+      },
+      "reports.view": {
+        "enabled": true,
+        "resource": null,
+        "action": null,
+        "requires_verification": false,
+        "verification_method": null,
+        "verification_ttl": null,
+        "requires_approval": false,
+        "autonomous_allowed": false
+      }
+    },
+    "roles": {
+      "analyst": {
+        "name": "Analyst",
+        "default": false,
+        "permissions": [
+          "reports.view"
+        ],
+        "conditions": {
+          "reports.view": {
+            "not": {
+              "any": [
+                {
+                  "eq": [
+                    {
+                      "var": "user.department"
+                    },
+                    "sales"
+                  ]
+                },
+                {
+                  "eq": [
+                    {
+                      "var": "context.channel"
+                    },
+                    "api"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "clerk": {
+        "name": "Clerk",
+        "default": false,
+        "permissions": [
+          "invoice:approve",
+          "invoice:export",
+          "invoice:pay",
+          "invoice:read"
+        ],
+        "conditions": {
+          "invoice:approve": {
+            "lt": [
+              {
+                "var": "resource.amount"
+              },
+              5000
+            ]
+          }
+        }
+      },
+      "editor": {
+        "name": "Editor",
+        "default": false,
+        "permissions": [
+          "document:delete",
+          "document:edit"
+        ],
+        "conditions": {
+        }
+      },
+      "member": {
+        "name": "Member",
+        "default": true,
+        "permissions": [
+          "document:read"
+        ],
+        "conditions": {
+        }
+      },
+      "regional": {
+        "name": "Regional",
+        "default": false,
+        "permissions": [
+          "document:edit"
+        ],
+        "conditions": {
+          "document:edit": {
+            "all": [
+              {
+                "eq": [
+                  {
+                    "var": "resource.region"
+                  },
+                  {
+                    "var": "user.region"
+                  }
+                ]
+              },
+              {
+                "gte": [
+                  {
+                    "var": "context.hour_utc"
+                  },
+                  8
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "resources": {
+      "document": {
+        "roles": {
+        },
+        "relations": {
+        },
+        "derivations": [
+
+        ]
+      },
+      "invoice": {
+        "roles": {
+        },
+        "relations": {
+        },
+        "derivations": [
+
+        ]
+      }
+    },
+    "routes": [
+
+    ]
+  },
+  "cases": [
+    {
+      "name": "nobody read document {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:read",
+        "roles": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "nobody edit document {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "nobody delete document {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "delete",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:delete"
+      }
+    },
+    {
+      "name": "nobody edit document {\"region\":\"eu\"} {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document",
+        "attributes": {
+          "region": "eu"
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "nobody edit document {\"region\":\"us\"} {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document",
+        "attributes": {
+          "region": "us"
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "nobody read invoice {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:read"
+      }
+    },
+    {
+      "name": "nobody pay invoice {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "pay",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:pay"
+      }
+    },
+    {
+      "name": "nobody export invoice {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "export",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "permission_disabled",
+        "permission": "invoice:export"
+      }
+    },
+    {
+      "name": "nobody approve invoice {\"amount\":4200} {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice",
+        "attributes": {
+          "amount": 4200
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "nobody approve invoice {\"amount\":9000} {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice",
+        "attributes": {
+          "amount": 9000
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "nobody approve invoice {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "nobody view {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "view",
+      "resource": null,
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "unknown_permission",
+        "permission": "view"
+      }
+    },
+    {
+      "name": "nobody reports.view {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "nobody reports.view {\"channel\":\"api\"}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": "api"
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "nobody reports.view {\"channel\":\"web\"}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": "web"
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "nobody reports.view {\"channel\":null}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": null
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "nobody fly invoice {}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "fly",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "unknown_permission",
+        "permission": "invoice:fly"
+      }
+    },
+    {
+      "name": "nobody edit document {\"impersonated\":true}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": true
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "nobody read document {\"impersonated\":true}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": true
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:read",
+        "roles": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "nobody edit document {\"impersonated\":false}",
+      "roles": [
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": false
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "clerk_eu read document {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:read",
+        "roles": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "clerk_eu edit document {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "clerk_eu delete document {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "delete",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:delete"
+      }
+    },
+    {
+      "name": "clerk_eu edit document {\"region\":\"eu\"} {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document",
+        "attributes": {
+          "region": "eu"
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "clerk_eu edit document {\"region\":\"us\"} {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document",
+        "attributes": {
+          "region": "us"
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "clerk_eu read invoice {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "invoice:read",
+        "roles": [
+          "clerk"
+        ]
+      }
+    },
+    {
+      "name": "clerk_eu pay invoice {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "pay",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow_with_approval",
+        "reason": "approval_required",
+        "permission": "invoice:pay",
+        "roles": [
+          "clerk"
+        ]
+      }
+    },
+    {
+      "name": "clerk_eu export invoice {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "export",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "permission_disabled",
+        "permission": "invoice:export"
+      }
+    },
+    {
+      "name": "clerk_eu approve invoice {\"amount\":4200} {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice",
+        "attributes": {
+          "amount": 4200
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "invoice:approve",
+        "roles": [
+          "clerk"
+        ]
+      }
+    },
+    {
+      "name": "clerk_eu approve invoice {\"amount\":9000} {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice",
+        "attributes": {
+          "amount": 9000
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "clerk_eu approve invoice {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "clerk_eu view {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "view",
+      "resource": null,
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "unknown_permission",
+        "permission": "view"
+      }
+    },
+    {
+      "name": "clerk_eu reports.view {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "clerk_eu reports.view {\"channel\":\"api\"}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": "api"
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "clerk_eu reports.view {\"channel\":\"web\"}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": "web"
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "clerk_eu reports.view {\"channel\":null}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": null
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "clerk_eu fly invoice {}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "fly",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "unknown_permission",
+        "permission": "invoice:fly"
+      }
+    },
+    {
+      "name": "clerk_eu edit document {\"impersonated\":true}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": true
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "clerk_eu read document {\"impersonated\":true}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": true
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:read",
+        "roles": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "clerk_eu edit document {\"impersonated\":false}",
+      "roles": [
+        "clerk",
+        "member"
+      ],
+      "user": {
+        "region": "eu",
+        "department": "finance",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": false
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "regional_eu read document {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:read",
+        "roles": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "regional_eu edit document {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "regional_eu delete document {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "delete",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:delete"
+      }
+    },
+    {
+      "name": "regional_eu edit document {\"region\":\"eu\"} {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document",
+        "attributes": {
+          "region": "eu"
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:edit",
+        "roles": [
+          "regional"
+        ]
+      }
+    },
+    {
+      "name": "regional_eu edit document {\"region\":\"us\"} {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document",
+        "attributes": {
+          "region": "us"
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "regional_eu read invoice {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:read"
+      }
+    },
+    {
+      "name": "regional_eu pay invoice {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "pay",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:pay"
+      }
+    },
+    {
+      "name": "regional_eu export invoice {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "export",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "permission_disabled",
+        "permission": "invoice:export"
+      }
+    },
+    {
+      "name": "regional_eu approve invoice {\"amount\":4200} {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice",
+        "attributes": {
+          "amount": 4200
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "regional_eu approve invoice {\"amount\":9000} {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice",
+        "attributes": {
+          "amount": 9000
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "regional_eu approve invoice {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "regional_eu view {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "view",
+      "resource": null,
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "unknown_permission",
+        "permission": "view"
+      }
+    },
+    {
+      "name": "regional_eu reports.view {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "regional_eu reports.view {\"channel\":\"api\"}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": "api"
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "regional_eu reports.view {\"channel\":\"web\"}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": "web"
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "regional_eu reports.view {\"channel\":null}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": null
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "regional_eu fly invoice {}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "fly",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "unknown_permission",
+        "permission": "invoice:fly"
+      }
+    },
+    {
+      "name": "regional_eu edit document {\"impersonated\":true}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": true
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "regional_eu read document {\"impersonated\":true}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": true
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:read",
+        "roles": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "regional_eu edit document {\"impersonated\":false}",
+      "roles": [
+        "analyst",
+        "member",
+        "regional"
+      ],
+      "user": {
+        "region": "eu",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": false
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "editor read document {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:read",
+        "roles": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "editor edit document {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:edit",
+        "roles": [
+          "editor"
+        ]
+      }
+    },
+    {
+      "name": "editor delete document {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "delete",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow_with_step_up",
+        "reason": "verification_required",
+        "permission": "document:delete",
+        "roles": [
+          "editor"
+        ]
+      }
+    },
+    {
+      "name": "editor edit document {\"region\":\"eu\"} {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document",
+        "attributes": {
+          "region": "eu"
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:edit",
+        "roles": [
+          "editor"
+        ]
+      }
+    },
+    {
+      "name": "editor edit document {\"region\":\"us\"} {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document",
+        "attributes": {
+          "region": "us"
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:edit",
+        "roles": [
+          "editor"
+        ]
+      }
+    },
+    {
+      "name": "editor read invoice {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:read"
+      }
+    },
+    {
+      "name": "editor pay invoice {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "pay",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:pay"
+      }
+    },
+    {
+      "name": "editor export invoice {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "export",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "permission_disabled",
+        "permission": "invoice:export"
+      }
+    },
+    {
+      "name": "editor approve invoice {\"amount\":4200} {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice",
+        "attributes": {
+          "amount": 4200
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "editor approve invoice {\"amount\":9000} {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice",
+        "attributes": {
+          "amount": 9000
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "editor approve invoice {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "editor view {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "view",
+      "resource": null,
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "unknown_permission",
+        "permission": "view"
+      }
+    },
+    {
+      "name": "editor reports.view {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "editor reports.view {\"channel\":\"api\"}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": "api"
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "editor reports.view {\"channel\":\"web\"}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": "web"
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "editor reports.view {\"channel\":null}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": null
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "editor fly invoice {}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "fly",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "unknown_permission",
+        "permission": "invoice:fly"
+      }
+    },
+    {
+      "name": "editor edit document {\"impersonated\":true}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": true
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "impersonating",
+        "permission": "document:edit",
+        "roles": [
+          "editor"
+        ]
+      }
+    },
+    {
+      "name": "editor read document {\"impersonated\":true}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": true
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:read",
+        "roles": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "editor edit document {\"impersonated\":false}",
+      "roles": [
+        "analyst",
+        "editor",
+        "member"
+      ],
+      "user": {
+        "department": "sales",
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": false
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:edit",
+        "roles": [
+          "editor"
+        ]
+      }
+    },
+    {
+      "name": "analyst_null read document {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:read",
+        "roles": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "analyst_null edit document {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "analyst_null delete document {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "delete",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:delete"
+      }
+    },
+    {
+      "name": "analyst_null edit document {\"region\":\"eu\"} {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document",
+        "attributes": {
+          "region": "eu"
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "analyst_null edit document {\"region\":\"us\"} {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document",
+        "attributes": {
+          "region": "us"
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "analyst_null read invoice {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:read"
+      }
+    },
+    {
+      "name": "analyst_null pay invoice {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "pay",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:pay"
+      }
+    },
+    {
+      "name": "analyst_null export invoice {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "export",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "permission_disabled",
+        "permission": "invoice:export"
+      }
+    },
+    {
+      "name": "analyst_null approve invoice {\"amount\":4200} {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice",
+        "attributes": {
+          "amount": 4200
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "analyst_null approve invoice {\"amount\":9000} {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice",
+        "attributes": {
+          "amount": 9000
+        }
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "analyst_null approve invoice {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "approve",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "invoice:approve"
+      }
+    },
+    {
+      "name": "analyst_null view {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "view",
+      "resource": null,
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "unknown_permission",
+        "permission": "view"
+      }
+    },
+    {
+      "name": "analyst_null reports.view {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "analyst_null reports.view {\"channel\":\"api\"}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": "api"
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "analyst_null reports.view {\"channel\":\"web\"}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": "web"
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "analyst_null reports.view {\"channel\":null}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "reports.view",
+      "resource": null,
+      "context": {
+        "channel": null
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "condition_failed",
+        "permission": "reports.view"
+      }
+    },
+    {
+      "name": "analyst_null fly invoice {}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "fly",
+      "resource": {
+        "type": "invoice"
+      },
+      "context": {
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "unknown_permission",
+        "permission": "invoice:fly"
+      }
+    },
+    {
+      "name": "analyst_null edit document {\"impersonated\":true}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": true
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    },
+    {
+      "name": "analyst_null read document {\"impersonated\":true}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "read",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": true
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "allow",
+        "reason": "role_grant",
+        "permission": "document:read",
+        "roles": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "analyst_null edit document {\"impersonated\":false}",
+      "roles": [
+        "analyst",
+        "member"
+      ],
+      "user": {
+        "status": "active",
+        "identity_verified": false
+      },
+      "action": "edit",
+      "resource": {
+        "type": "document"
+      },
+      "context": {
+        "impersonated": false
+      },
+      "now": "2026-09-28T10:30:00Z",
+      "expect": {
+        "decision": "deny",
+        "reason": "no_role_grants_permission",
+        "permission": "document:edit"
+      }
+    }
+  ]
+}
