@@ -391,11 +391,12 @@ class Policy:
     editor: str
     assistant: str
     auditor: str
+    cashier: str
     document: dict[str, Any] = field(repr=False)
 
     @property
     def roles(self) -> tuple[str, ...]:
-        return (self.clerk, self.editor, self.assistant, self.auditor)
+        return (self.clerk, self.editor, self.assistant, self.auditor, self.cashier)
 
     @property
     def resources(self) -> tuple[str, ...]:
@@ -405,9 +406,10 @@ class Policy:
 def policy_for(n: Names) -> Policy:
     """invoice: read; approve under 5000; pay with a reviewer's approval; refund.
     doc: read; edit (not while someone is signed in as the user); delete after
-    verifying. clerk and editor are for people, assistant for agents."""
+    verifying. clerk and editor are for people, assistant and cashier for agents."""
     invoice, doc = n.slug("invoice"), n.slug("doc")
     clerk, editor, assistant, auditor = n.slug("clerk"), n.slug("editor"), n.slug("assistant"), n.slug("auditor")
+    cashier = n.slug("cashier")
     document: dict[str, Any] = {
         "scute_policy": 1,
         "resources": {
@@ -427,10 +429,11 @@ def policy_for(n: Names) -> Policy:
             assistant: {"name": "Live assistant", "permissions": [
                 f"{invoice}:read", f"{invoice}:approve", f"{invoice}:refund", f"{doc}:delete"]},
             auditor: {"name": "Live auditor", "permissions": [f"{invoice}:read"]},
+            cashier: {"name": "Live cashier", "permissions": [f"{invoice}:read", f"{invoice}:pay", f"{doc}:delete"]},
         },
     }
     return Policy(invoice=invoice, doc=doc, clerk=clerk, editor=editor, assistant=assistant, auditor=auditor,
-                  document=document)
+                  cashier=cashier, document=document)
 
 
 def assign_role(api: LiveAPI, cleanup: Cleanup, user_id: str, role: str) -> None:

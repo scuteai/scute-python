@@ -21,13 +21,14 @@ class Decision:
     step_up: dict[str, Any] | None = None
     approval: dict[str, Any] | None = None
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
+    say: str | None = None  # a line for the person, on an agent's checks
 
     @classmethod
     def from_api(cls, data: dict[str, Any] | None) -> Decision:
         d = data or {}
         return cls(decision=str(d.get("decision")), reason=d.get("reason"), permission=d.get("permission"),
                    roles=list(d.get("roles") or []), explanation=d.get("explanation"), step_up=d.get("step_up"),
-                   approval=d.get("approval"), raw=d)
+                   approval=d.get("approval"), raw=d, say=d.get("say"))
 
     @property
     def allowed(self) -> bool:

@@ -7,6 +7,7 @@ from urllib.parse import quote
 import httpx
 
 from ._http import HTTP
+from .agents import Agents
 from .authz import Authz
 from .errors import ConfigurationError
 from .sessions import Sessions
@@ -35,6 +36,7 @@ class Scute:
         self.users = Users(self)
         self.sessions = Sessions(self)
         self.authz = Authz(self)
+        self.agents = Agents(self)
 
     @property
     def has_secret(self) -> bool:
