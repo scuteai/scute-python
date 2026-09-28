@@ -7,6 +7,8 @@ check what they may do.
 pip install git+https://github.com/scuteai/scute-python
 ```
 
+Not on PyPI: the `scute` name there belongs to an unrelated package, so always install from GitHub. Pin a commit with `@<sha>` on the URL.
+
 Set `SCUTE_APP_ID` and `SCUTE_SECRET` (server side only). Python 3.10+.
 
 ## Authentication
@@ -73,14 +75,14 @@ impersonating".
 ## Frameworks
 
 ```python
-# FastAPI (pip install "scute[fastapi]")
+# FastAPI (pip install "scute[fastapi] @ git+https://github.com/scuteai/scute-python")
 from scute.contrib.fastapi import ScuteAuth
 auth = ScuteAuth(Scute())
 
 @app.post("/invoices/{id}/refund", dependencies=[Depends(auth.require("refund", "invoice:{id}"))])
 def refund(id: str, session: Annotated[Session, Depends(auth.session)]): ...
 
-# Flask (pip install "scute[flask]")
+# Flask (pip install "scute[flask] @ git+https://github.com/scuteai/scute-python")
 from scute.contrib.flask import ScuteAuth
 auth = ScuteAuth(Scute())
 
