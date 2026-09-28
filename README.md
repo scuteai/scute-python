@@ -102,3 +102,70 @@ decide_locally(snapshot_policy, roles=["clerk"], action="approve", resource={"ty
 This gives the same answers as Scute's engine for everything the snapshot
 knows; the shared conformance vectors are part of the tests. Anything it can't
 answer comes back as `"unknown"`, and then you ask the API.
+
+## Live suite
+
+`tests/live` runs the SDK against a real Scute API (the v2 deployment), no
+mocks. It's off in the normal run and in CI (`pytest` deselects it); run it
+with:
+
+```bash
+pip install -e ".[dev]"
+pytest -m live
+```
+
+Credentials: an app made for this suite, with test identities on (sign-in
+codes are always `424242` for `...+scute_test@example.com` and
+`+1 415 555 01xx`, and nothing is sent). Make it once, on the v2 API only:
+
+```bash
+heroku run -a scute-api-v2 rake "sdk_live:setup[python]"
+```
+
+It prints three lines. Put them in `.sdk-live/python.env` next to your checkout
+(outside the repo, never committed), or export them, or point
+`SCUTE_LIVE_ENV_FILE` at another file:
+
+```bash
+SCUTE_LIVE_BASE_URL=...
+SCUTE_LIVE_APP_ID=...
+SCUTE_LIVE_SECRET=...
+```
+
+Without them every live test is skipped with one line saying so, and the run
+exits 0.
+
+What it covers, in order (one file each, `tests/live/test_01_app.py` to
+`test_10_decision_log.py`):
+
+1. App: its public data; the SDK finding the public id from the app's UUID.
+2. Sign-in: email OTP and SMS OTP with test identities, then the user,
+   refresh, sign out, listing and revoking sessions.
+3. Tokens: local JWKS verification (a tampered, an expired and another
+   audience's token refused) and `remote=True`.
+4. MFA: TOTP enrollment (codes computed per RFC 6238), a sign-in that needs
+   MFA finished with TOTP, backup codes, removing the method.
+5. Users: create, get by id and by identifier, update, deactivate, activate,
+   delete.
+6. Signing in as a user: start (the `act` claim), list, stop, and a "not while
+   impersonating" permission refused inside the session.
+7. Authorization: policy import, role assignment, check, check-batch,
+   permissions, authorized users, filter, the signed snapshot with
+   `decide_locally` matching the server, access requests; and the FastAPI and
+   Flask glue with real sessions.
+8. Agents: a task, checks through it, a step-up through the human steps,
+   properties (a secret; a signature checked against the JWKS), a budget that
+   pauses the agent, suspend and resume.
+9. The auth MCP server over JSON-RPC with an agent key, then the backend's
+   conversation lookup and check.
+10. The decision log: rows for the checks above.
+
+Where this SDK has no API (the sign-in itself, MFA, policy and roles, filter,
+the snapshot, access requests, agents and their tasks, properties, the auth
+MCP, the decision log), the suite calls the HTTP API directly with httpx and
+says so in the test. There's no Python agent harness yet.
+
+Each run is named `live-<runid>` (users, roles, resources, agents,
+properties) and deletes what it made at the end, also when tests fail. It
+keeps sign-ins to five per run (the API throttles them) and never prints the
+secret, tokens or codes other than 424242.
