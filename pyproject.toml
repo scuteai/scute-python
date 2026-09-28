@@ -24,6 +24,9 @@ packages = ["src/scute"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The live suite (tests/live) talks to a real Scute API: only with `pytest -m live`.
+addopts = ["-m", "not live"]
+markers = ["live: against a real Scute API (pytest -m live; needs SCUTE_LIVE_* credentials)"]
 
 [tool.ruff]
 line-length = 120
