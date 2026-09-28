@@ -50,15 +50,26 @@ def test_finds_a_user_by_phone(scute: Scute, names: Names, cleanup: Cleanup) -> 
     assert found is not None and found["id"] == user_id
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason=(
-    "API: GET /v1/auth/:app_id/users?identifier= finds or creates (api api_base_controller.rb:282, auth/users_controller.rb:"
-    "35-46): an unused identifier comes back as a new active user"))
 def test_find_by_identifier_is_none_for_nobody(scute: Scute, names: Names, cleanup: Cleanup) -> None:
-    """users.find_by_identifier says: None when nobody by that identifier uses the app."""
-    found = scute.users.find_by_identifier(names.email(7))
+    """None when nobody by that identifier uses the app, and nobody gets made."""
+    email = names.email(7)
+    found = scute.users.find_by_identifier(email)
     if found:
         delete_user_later(scute, cleanup, str(found["id"]))
-    assert found is None, "find_by_identifier made a user for an identifier nobody uses"
+    assert found is None, "find_by_identifier found (or made) a user for an identifier nobody uses"
+    assert scute.users.list(email=email)["users"] == []
+    assert scute.users.find_by_identifier(names.phone(3)) is None
+
+
+def test_find_by_identifier_matches_exactly(scute: Scute, names: Names, cleanup: Cleanup) -> None:
+    """The search behind it is loose (q=); only the exact email, in any case, counts."""
+    exact, near = names.email(10), names.email(100)  # near-identical: the loose search answers both
+    ids: dict[str, str] = {}
+    for email in (exact, near):
+        ids[email] = str(scute.users.create(email)["user"]["id"])
+        delete_user_later(scute, cleanup, ids[email])
+    found = scute.users.find_by_identifier(exact.upper())
+    assert found is not None and found["id"] == ids[exact]
 
 
 def test_meta_needs_declared_fields(scute: Scute, names: Names, cleanup: Cleanup) -> None:

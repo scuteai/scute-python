@@ -38,15 +38,19 @@ session.actor                                    # who: {"kind": "backend", "ema
 ```python
 scute.users.create("ada@example.com", meta={"plan": "pro"})
 scute.users.invite("bob@example.com")
-scute.users.find_by_identifier("ada@example.com")
+scute.users.find_by_identifier("ada@example.com")  # exact email (any case) or phone (as digits); None if nobody
 scute.users.update(user_id, user_meta={"plan": "team"})
 scute.users.deactivate(user_id)
 
-scute.sessions.list(user_id)
-scute.sessions.revoke(user_id, session_id)
+scute.sessions.list(user_id)                       # the secret key alone is enough, no user session
+scute.sessions.revoke(user_id, session_id)         # ends it at once
 scute.sessions.current_user(access_token)
 scute.sessions.sign_out(access_token)
 ```
+
+`meta` and `user_meta` keys are the user meta fields declared for the app (in
+the dashboard): others are left out on create (listed in `user_meta_errors`)
+and refused on update.
 
 ### Signing in as a user (support access)
 

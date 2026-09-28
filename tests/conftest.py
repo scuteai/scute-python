@@ -4,7 +4,7 @@ import base64
 import json
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 import pytest
@@ -37,6 +37,15 @@ class FakeScute:
     """A stand-in for the Scute API endpoints the SDK calls, as an httpx transport."""
 
     keys: list[tuple[rsa.RSAPrivateKey, str]] = field(default_factory=lambda: [(KEY, "k1")])
+    # The app's users, for the user list's loose search (q=): like the real one,
+    # it answers more than exact matches, and this one pages by 2.
+    people: list[dict[str, Any]] = field(default_factory=lambda: [
+        {"id": "user3", "email": "adam@example.com", "phone": None},
+        {"id": "user4", "email": None, "phone": "+14155550100"},
+        {"id": "user5", "email": "ada@example.com.au", "phone": "+14155550101"},
+        {"id": "user1", "email": "ada@example.com", "phone": None},
+        {"id": "user6", "email": "zoe@example.com", "phone": None},
+    ])
     revoked: set[str] = field(default_factory=set)
     seen: list[httpx.Request] = field(default_factory=list)
 
@@ -73,9 +82,13 @@ class FakeScute:
         if not secret:
             return ok({"error": "Unauthorized"}, 401)
         if path == "/v1/app1/users" and method == "GET":
-            return ok({"users": [{"id": "user1"}], "query": urlparse(str(request.url)).query})
-        if path == "/v1/auth/app1/users" and method == "GET":
-            return ok({"user": {"id": "user1"} if "ada" in str(request.url) else None})
+            query = {k: v[0] for k, v in parse_qs(urlparse(str(request.url)).query).items()}
+            if "q" not in query:
+                return ok({"users": [{"id": "user1"}], "query": urlparse(str(request.url)).query})
+            page, size = int(query.get("page", 1)), 2
+            found = self.people[(page - 1) * size:page * size]
+            more = page * size < len(self.people)
+            return ok({"users": found, "current_page": page, "next_page": page + 1 if more else None, "per_page": size})
         if path == "/v1/auth/app1/users" and method == "POST":
             return ok({"user": {"id": "user2", "identifier": body["identifier"]}}, 201)
         if path.startswith("/v1/app1/users/user1"):

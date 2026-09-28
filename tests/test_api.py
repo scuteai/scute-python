@@ -15,13 +15,38 @@ def client(fake: FakeScute, secret: str | None = "sk_test") -> Scute:
 def test_manages_users_with_the_secret_key(fake: FakeScute) -> None:
     c = client(fake)
     assert c.users.list(page=2)["query"] == "page=2"
-    assert c.users.find_by_identifier("ada@example.com") == {"id": "user1"}
-    assert c.users.find_by_identifier("bob@example.com") is None
     assert c.users.create("ada@example.com", meta={"plan": "pro"})["user"]["identifier"] == "ada@example.com"
     c.users.deactivate("user1")
     c.users.update("user1", user_meta={"plan": "team"})
     assert ("POST", "/v1/app1/users/user1/deactivate") in [(r.method, r.url.path) for r in fake.seen]
     assert fake.seen[-1].headers["authorization"] == "Bearer sk_test"
+
+
+def test_finds_a_user_by_identifier_exactly(fake: FakeScute) -> None:
+    c = client(fake)
+    assert c.users.find_by_identifier(" ADA@example.com ")["id"] == "user1"  # on page 2 of the loose search
+    assert c.users.find_by_identifier("+1 (415) 555-0100")["id"] == "user4"
+    assert c.users.find_by_identifier("14155550101")["id"] == "user5"
+    searches = [r for r in fake.seen if r.url.path == "/v1/app1/users"]
+    assert [(r.url.params["q"], r.url.params["page"]) for r in searches] == [
+        ("ada@example.com", "1"), ("ada@example.com", "2"), ("14155550100", "1"), ("14155550101", "1"), ("14155550101", "2")]
+    assert all(r.headers["authorization"] == "Bearer sk_test" for r in searches)
+
+
+def test_finds_nobody_without_making_anyone(fake: FakeScute) -> None:
+    c = client(fake)
+    assert c.users.find_by_identifier("ada@example.co") is None  # a near miss isn't a match
+    assert c.users.find_by_identifier("+1 415 555 0199") is None
+    assert [r.url.params["page"] for r in fake.seen] == ["1", "2", "3", "1", "2", "3"]  # every page, then stop
+    assert c.users.find_by_identifier("  ") is None and c.users.find_by_identifier("n/a") is None
+    assert len(fake.seen) == 6  # nothing to search for: no call
+    assert not any(r.url.path.startswith("/v1/auth/") for r in fake.seen)
+
+
+def test_the_search_stops_after_a_bounded_number_of_pages(fake: FakeScute) -> None:
+    fake.people = [{"id": f"u{n}", "email": f"ada{n}@example.com", "phone": None} for n in range(40)]
+    assert client(fake).users.find_by_identifier("ada@example.com") is None
+    assert len(fake.seen) == client(fake).users.FIND_MAX_PAGES
 
 
 def test_starts_lists_and_ends_sessions_as_a_user(fake: FakeScute) -> None:
