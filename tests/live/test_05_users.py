@@ -1,5 +1,7 @@
 """5. Admin users with the secret key: create, get (by id and by identifier),
-update, deactivate, activate, delete. All SDK (scute.users).
+update, deactivate, activate, delete; and after a delete, the fresh account a
+returning user gets, their previous accounts and merging one in. All SDK
+(scute.users); the sign-ins go through the HTTP helper.
 
 Not run: users.invite sends a real magic-link email (test identities only
 cover OTP codes).
@@ -11,7 +13,16 @@ import pytest
 
 from scute import APIError, Scute
 
-from .support import Cleanup, Names, delete_user_later
+from .support import (
+    Cleanup,
+    LiveAPI,
+    Names,
+    Policy,
+    assign_role,
+    delete_user_later,
+    revoke_role_later,
+    sign_in,
+)
 
 pytestmark = pytest.mark.live
 
@@ -86,3 +97,52 @@ def test_meta_needs_declared_fields(scute: Scute, names: Names, cleanup: Cleanup
     with pytest.raises(APIError) as refused:
         scute.users.update(user_id, user_meta={key: "team"})
     assert refused.value.status == 422
+
+
+def test_a_deleted_user_who_signs_in_again_gets_a_fresh_account(api: LiveAPI, scute: Scute, names: Names,
+                                                                 cleanup: Cleanup, policy: Policy) -> None:
+    """Deleted, then signed in again: a new account, the old one listed as a
+    previous account and merged in (its role moves over), once."""
+    email = names.email(11)
+    first = sign_in(api, email)
+    delete_user_later(scute, cleanup, first.user_id)
+    assign_role(api, cleanup, first.user_id, policy.auditor)
+    scute.users.delete(first.user_id)
+
+    again = sign_in(api, email)
+    delete_user_later(scute, cleanup, again.user_id)
+    revoke_role_later(api, cleanup, again.user_id, policy.auditor)  # the role moves over below
+    assert again.user_id != first.user_id
+    with pytest.raises(APIError) as gone:
+        scute.users.get(first.user_id)
+    assert gone.value.status == 404
+    target = f"{policy.invoice}:1"
+    assert not scute.authz.check(user_id=again.user_id, action="read", resource=target).allowed
+
+    previous = scute.users.previous_accounts(again.user_id)
+    assert [a["id"] for a in previous] == [first.user_id]
+    assert previous[0]["deleted_at"] and previous[0]["roles"] == 1 and "merged_into" not in previous[0]
+
+    merged = scute.users.merge(again.user_id, first.user_id)
+    assert (merged["user_id"], merged["merged"], merged["moved"]["roles"]) == (again.user_id, first.user_id, 1)
+    held = api.ok("GET", api.apps(f"/authz/users/{again.user_id}/roles"))["roles"]
+    assert [g["role"] for g in held] == [policy.auditor]
+    assert scute.authz.check(user_id=again.user_id, action="read", resource=target).allowed
+    assert scute.users.previous_accounts(again.user_id)[0]["merged_into"] == again.user_id
+
+    with pytest.raises(APIError) as twice:
+        scute.users.merge(again.user_id, first.user_id)
+    assert (twice.value.status, twice.value.code) == (422, "already_merged")
+
+
+def test_someone_deactivated_then_deleted_cant_sign_in_again(api: LiveAPI, scute: Scute, names: Names,
+                                                           cleanup: Cleanup) -> None:
+    """Deprovisioned (deactivated, then deleted): no fresh account, the sign-in is refused."""
+    email = names.email(12)
+    user_id = str(scute.users.create(email)["user"]["id"])
+    delete_user_later(scute, cleanup, user_id)
+    scute.users.deactivate(user_id)
+    scute.users.delete(user_id)
+    refused = api.call("POST", api.auth("/otps/login"), {"identifier": email}, secret=False)
+    assert (refused.status, refused.error_code) == (403, "account_deactivated")
+    assert scute.users.find_by_identifier(email) is None

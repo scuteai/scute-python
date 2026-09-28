@@ -42,11 +42,20 @@ scute.users.find_by_identifier("ada@example.com")  # exact email (any case) or p
 scute.users.update(user_id, user_meta={"plan": "team"})
 scute.users.deactivate(user_id)
 
+scute.users.previous_accounts(user_id)              # earlier, deleted accounts of the same person
+scute.users.merge(user_id, from_id)                # move one's roles, passkeys and MFA over (once)
+
 scute.sessions.list(user_id)                       # the secret key alone is enough, no user session
 scute.sessions.revoke(user_id, session_id)         # ends it at once
 scute.sessions.current_user(access_token)
 scute.sessions.sign_out(access_token)
 ```
+
+Someone deleted who signs in again gets a fresh account (a new id); their
+earlier account stays deleted, with its history. `previous_accounts` lists the
+earlier accounts and `merge` brings one into the live account (for meta and
+attributes the live account wins). Someone deactivated and then deleted can't
+sign in again (403, `account_deactivated`) until you bring them back.
 
 `meta` and `user_meta` keys are the user meta fields declared for the app (in
 the dashboard): others are left out on create (listed in `user_meta_errors`)
@@ -177,5 +186,5 @@ unexpected pass to clean up.
 
 Each run is named `live-<runid>` (users, roles, resources, agents,
 properties) and deletes what it made at the end, also when tests fail. It
-keeps sign-ins to five per run (the API throttles them) and never prints the
+keeps sign-ins to seven per run (the API throttles them) and never prints the
 secret, tokens or codes other than 424242.
