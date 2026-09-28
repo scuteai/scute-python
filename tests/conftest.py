@@ -47,6 +47,7 @@ class FakeScute:
         {"id": "user6", "email": "zoe@example.com", "phone": None},
     ])
     revoked: set[str] = field(default_factory=set)
+    merged: set[str] = field(default_factory=set)
     seen: list[httpx.Request] = field(default_factory=list)
 
     def paths(self, path: str) -> list[httpx.Request]:
@@ -91,6 +92,15 @@ class FakeScute:
             return ok({"users": found, "current_page": page, "next_page": page + 1 if more else None, "per_page": size})
         if path == "/v1/auth/app1/users" and method == "POST":
             return ok({"user": {"id": "user2", "identifier": body["identifier"]}}, 201)
+        if path == "/v1/app1/users/user1/previous_accounts" and method == "GET":
+            return ok({"previous_accounts": [{"id": "old1", "status": "active", "deleted_at": "2026-09-01T00:00:00Z",
+                                              "roles": 1, "passkeys": 0, "mfa_methods": ["totp"]}]})
+        if path == "/v1/app1/users/user1/merge" and method == "POST":
+            if body["from"] in self.merged:
+                return ok({"error": "That account was already merged", "error_code": "already_merged"}, 422)
+            self.merged.add(body["from"])
+            return ok({"user_id": "user1", "merged": body["from"],
+                       "moved": {"roles": 1, "resource_roles": 0, "passkeys": 0, "mfa_methods": 1, "backup_codes": 0}})
         if path.startswith("/v1/app1/users/user1"):
             if path.endswith("/sessions"):
                 return ok([{"id": "ses1"}])

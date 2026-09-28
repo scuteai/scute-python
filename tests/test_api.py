@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 
@@ -47,6 +49,21 @@ def test_the_search_stops_after_a_bounded_number_of_pages(fake: FakeScute) -> No
     fake.people = [{"id": f"u{n}", "email": f"ada{n}@example.com", "phone": None} for n in range(40)]
     assert client(fake).users.find_by_identifier("ada@example.com") is None
     assert len(fake.seen) == client(fake).users.FIND_MAX_PAGES
+
+
+def test_lists_and_merges_previous_accounts(fake: FakeScute) -> None:
+    c = client(fake)
+    previous = c.users.previous_accounts("user1")
+    assert [(a["id"], a["roles"], a["mfa_methods"]) for a in previous] == [("old1", 1, ["totp"])]
+    merged = c.users.merge("user1", "old1")
+    assert (merged["merged"], merged["moved"]["roles"]) == ("old1", 1)
+    assert (fake.seen[-1].method, fake.seen[-1].url.path) == ("POST", "/v1/app1/users/user1/merge")
+    assert json.loads(fake.seen[-1].content) == {"from": "old1"}
+    assert fake.seen[-1].headers["authorization"] == "Bearer sk_test"
+    with pytest.raises(APIError) as again:
+        c.users.merge("user1", "old1")
+    assert (again.value.status, again.value.code) == (422, "already_merged")
+    assert len(fake.paths("/v1/app1/users/user1/merge")) == 2  # a POST isn't retried
 
 
 def test_starts_lists_and_ends_sessions_as_a_user(fake: FakeScute) -> None:

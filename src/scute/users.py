@@ -79,6 +79,28 @@ class Users:
     def delete(self, user_id: str) -> Any:
         return self._c.request("DELETE", self._c.app_path(f"/users/{self._c.esc(user_id)}"))
 
+    # ── Previous accounts ──
+    # Someone deleted who signs in again gets a fresh account (a new id). Their
+    # earlier accounts stay deleted, and can be merged into the live one.
+
+    def previous_accounts(self, user_id: str) -> builtins.list[dict[str, Any]]:
+        """The person's earlier, deleted accounts in this app, newest first: id,
+        status, created_at, deleted_at, merged_into (once merged), and what each
+        still holds (roles and passkeys counted, mfa_methods listed)."""
+        data = self._c.request("GET", self._c.app_path(f"/users/{self._c.esc(user_id)}/previous_accounts"))
+        return list((data or {}).get("previous_accounts") or [])
+
+    def merge(self, user_id: str, from_id: str) -> dict[str, Any]:
+        """Merge a previous (deleted) account of the same person into this live
+        one. Roles, resource roles, passkeys, MFA methods and unused backup codes
+        move over; meta and attributes are combined, the live account winning;
+        history stays on the old account. Answers {user_id, merged, moved: {roles,
+        resource_roles, passkeys, mfa_methods, backup_codes}} (counts moved).
+
+        Once per account: merging it again raises APIError (422, code
+        "already_merged")."""
+        return dict(self._c.request("POST", self._c.app_path(f"/users/{self._c.esc(user_id)}/merge"), {"from": from_id}))
+
     # ── Signing in as a user (support access) ──
     # Off until the app turns it on. The session is short, never refreshed,
     # and its token names who is really acting (Session.actor).
