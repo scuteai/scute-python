@@ -18,12 +18,6 @@ from .support import Cleanup, LiveAPI, Names, SignedIn, delete_user_later, redac
 
 pytestmark = pytest.mark.live
 
-# Confirmed against scute-api-v2 (v21); see the PR for the evidence.
-REFRESHED_AID = ("API: a refreshed access token carries aid = the app's internal UUID (api token_session.rb:300, "
-                 "jwt_session), a sign-in token the public id (token_session.rb:57), so tokens.verify refuses it: wrong_app")
-SESSIONS_NEED_A_USER = ("API: /v1/:app_id/users/:id/sessions answers 401 Not authorized to the app's secret key alone; "
-                        "it also wants a user session in X-Authorization (api sessions_controller.rb:6-8)")
-
 
 def digits(phone: object) -> str:
     return "".join(c for c in str(phone) if c.isdigit())
@@ -74,12 +68,10 @@ def test_refresh(scute: Scute, bob: SignedIn, refreshed: dict[str, Any]) -> None
     assert scute.sessions.current_user(refreshed["access"])["user"]["id"] == bob.user_id  # Scute takes it
 
 
-@pytest.mark.xfail(strict=True, raises=InvalidToken, reason=REFRESHED_AID)
 def test_a_refreshed_token_verifies_locally(scute: Scute, bob: SignedIn, refreshed: dict[str, Any]) -> None:
     assert scute.tokens.verify(refreshed["access"]).user_id == bob.user_id
 
 
-@pytest.mark.xfail(strict=True, raises=APIError, reason=SESSIONS_NEED_A_USER)
 def test_lists_sessions(scute: Scute, bob: SignedIn) -> None:
     sessions = scute.sessions.list(bob.user_id)
     assert isinstance(sessions, list) and sessions
@@ -99,7 +91,6 @@ def test_signs_out(api: LiveAPI, scute: Scute, bob: SignedIn) -> None:
     assert refused.value.status == 401
 
 
-@pytest.mark.xfail(strict=True, raises=APIError, reason=SESSIONS_NEED_A_USER)
 def test_revokes_a_session(scute: Scute, bob: SignedIn) -> None:
     """From the backend. The session ids come from users.get, so this doesn't
     lean on sessions.list."""

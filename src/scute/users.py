@@ -8,6 +8,10 @@ if TYPE_CHECKING:
     from .client import Scute
 
 
+def _digits(value: object) -> str:
+    return "".join(c for c in str(value or "") if c.isdigit())
+
+
 class Users:
     """The app's users, from your backend (secret key). Answers are the API's JSON."""
 
@@ -21,10 +25,39 @@ class Users:
     def get(self, user_id: str) -> Any:
         return self._c.request("GET", self._c.app_path(f"/users/{self._c.esc(user_id)}"))
 
+    FIND_PAGE_SIZE = 100
+    FIND_MAX_PAGES = 10
+
     def find_by_identifier(self, identifier: str) -> dict[str, Any] | None:
-        """By email or phone; None when nobody by that identifier uses the app."""
-        data = self._c.request("GET", self._c.auth_path(f"/users?identifier={self._c.esc(identifier)}"))
-        return (data or {}).get("user")
+        """The app's user with this email (any case) or phone number (compared as
+        digits, so include the country code), as users.get shows it; None when
+        nobody by that identifier uses the app. Never creates a user.
+
+        Searches the app's users with the secret key (list, q=...: a loose search
+        over email, phone and name) and keeps only an exact match.
+        """
+        wanted = identifier.strip()
+        if "@" in wanted:
+            query = wanted.lower()
+
+            def same(user: dict[str, Any]) -> bool:
+                return str(user.get("email") or "").strip().lower() == query
+        else:
+            query = _digits(wanted)
+
+            def same(user: dict[str, Any]) -> bool:
+                return _digits(user.get("phone")) == query
+
+        if not query:
+            return None
+        for page in range(1, self.FIND_MAX_PAGES + 1):
+            data = self.list(q=query, limit=self.FIND_PAGE_SIZE, page=page) or {}
+            for user in data.get("users") or []:
+                if same(user):
+                    return dict(user)
+            if not data.get("next_page"):
+                break
+        return None
 
     def create(self, identifier: str, meta: dict[str, Any] | None = None) -> Any:
         return self._c.request("POST", self._c.auth_path("/users"), {"identifier": identifier, **({"user_meta": meta} if meta else {})})
