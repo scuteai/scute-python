@@ -50,6 +50,9 @@ def test_finds_a_user_by_phone(scute: Scute, names: Names, cleanup: Cleanup) -> 
     assert found is not None and found["id"] == user_id
 
 
+@pytest.mark.xfail(strict=True, raises=AssertionError, reason=(
+    "API: GET /v1/auth/:app_id/users?identifier= finds or creates (api api_base_controller.rb:282, auth/users_controller.rb:"
+    "35-46): an unused identifier comes back as a new active user, even with no credentials at all"))
 def test_find_by_identifier_is_none_for_nobody(scute: Scute, names: Names, cleanup: Cleanup) -> None:
     """users.find_by_identifier says: None when nobody by that identifier uses the app."""
     found = scute.users.find_by_identifier(names.email(7))

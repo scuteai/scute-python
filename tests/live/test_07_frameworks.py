@@ -2,9 +2,10 @@
 and real sessions from this run: a protected route lets the signed-in user in,
 turns away a missing or forged token, and require(action, resource) follows the
 live policy, including "not while impersonating".
-"""
 
-from __future__ import annotations
+No `from __future__ import annotations` here: FastAPI reads the route
+signatures at runtime, and `auth` is local to fastapi_app().
+"""
 
 from collections.abc import Iterator
 from typing import Annotated, Any

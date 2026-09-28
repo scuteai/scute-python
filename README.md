@@ -165,6 +165,10 @@ the snapshot, access requests, agents and their tasks, properties, the auth
 MCP, the decision log), the suite calls the HTTP API directly with httpx and
 says so in the test. There's no Python agent harness yet.
 
+API bugs the suite has confirmed are marked `xfail(strict=True)` with the
+finding as the reason: the run stays green, and a fix shows up as an
+unexpected pass to clean up.
+
 Each run is named `live-<runid>` (users, roles, resources, agents,
 properties) and deletes what it made at the end, also when tests fail. It
 keeps sign-ins to five per run (the API throttles them) and never prints the
