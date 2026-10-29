@@ -12,6 +12,11 @@
         # flask.g.scute_session
 
 401 without a valid session, 403 when the check isn't a plain allow.
+
+`auth.client()` is the Scute client for the current request: its secret-key
+calls send the person's address (request.remote_addr) as X-Scute-Client-IP,
+and the permission checks use it. Behind a proxy, set up werkzeug's ProxyFix
+so remote_addr is the person's address and not the proxy's.
 """
 
 from __future__ import annotations
@@ -22,6 +27,7 @@ from typing import Any, TypeVar
 
 from flask import g, jsonify, request
 
+from .._client_ip import clean_client_ip
 from ..client import Scute
 from ..errors import InvalidToken
 from ._token import access_token
@@ -33,6 +39,12 @@ class ScuteAuth:
     def __init__(self, scute: Scute, *, remote: bool = False) -> None:
         self.scute = scute
         self.remote = remote
+
+    def client(self) -> Scute:
+        """The client for this request, sending request.remote_addr when that is
+        one IP address."""
+        ip = clean_client_ip(request.remote_addr)
+        return self.scute.with_client_ip(ip) if ip else self.scute
 
     def _session(self) -> Any:
         ids = [self.scute.app_id]
@@ -64,8 +76,8 @@ class ScuteAuth:
                     except InvalidToken as e:
                         return jsonify(error=str(e), reason=e.reason), 401
                 target = resource.format(**kwargs) if resource else None
-                decision = self.scute.authz.check(user_id=session.user_id, action=action, resource=target,
-                                                  context=session.authz_context() or None)
+                decision = self.client().authz.check(user_id=session.user_id, action=action, resource=target,
+                                                     context=session.authz_context() or None)
                 if not decision.allowed:
                     return jsonify(error=decision.explanation or "Not allowed", decision=decision.raw), 403
                 g.scute_decision = decision
