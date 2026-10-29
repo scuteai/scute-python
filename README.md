@@ -107,6 +107,56 @@ def refund(id): ...  # flask.g.scute_session
 No valid session gets a 401, and a check that isn't a plain allow gets a 403.
 Checks always carry the impersonation context.
 
+## Passing the end user's IP address
+
+When your server starts or completes a sign-in with the secret key (creating
+or signing in a user, a server-started challenge), Scute only sees your
+server's address. Tell it the person's address and Scute checks the sign-in
+against the workspace's IP rules; without it, that sign-in is not checked.
+On the other secret-key calls the address is recorded on sessions and audit
+events as the person's.
+
+The SDK sends it as `X-Scute-Client-IP` on calls with the secret key, never on
+calls made with a user's session.
+
+```python
+scute = Scute()
+
+# Per request (a copy that shares the connection pool and key cache):
+scute.with_client_ip(request.remote_addr).users.create("ada@example.com")
+
+# For a client that only ever acts for one person:
+Scute(client_ip="203.0.113.24")
+
+# One low-level call:
+scute.request("POST", scute.auth_path("/users"), {"identifier": "ada@example.com"}, client_ip="2001:db8::1")
+```
+
+It must be one IPv4 or IPv6 address (surrounding spaces are trimmed). A range,
+a list or anything else raises `ValueError` when you pass it; `None` or a
+blank value sends nothing.
+
+The framework glue fills it in from the request. `auth.client()` (Flask) and
+`Depends(auth.client)` (FastAPI) give you a client for the current request,
+and the permission checks use it:
+
+```python
+# FastAPI
+@app.post("/signup")
+def signup(scute: Annotated[Scute, Depends(auth.client)]): ...
+
+# Flask
+auth.client().users.create("ada@example.com")
+```
+
+They take the address the server sees for the connection
+(`request.client.host` in FastAPI, `request.remote_addr` in Flask) and skip it
+when it isn't one IP address. They never read `X-Forwarded-For` themselves.
+Behind a proxy or load balancer, let the framework resolve the forwarded
+address with its own trust settings: uvicorn's `--proxy-headers` with
+`--forwarded-allow-ips` set to your proxy, or werkzeug's `ProxyFix` for Flask.
+Elsewhere, pass the address you trust with `with_client_ip`.
+
 ## Agents
 
 Register the agents you build with roles (their ceiling), then run each job

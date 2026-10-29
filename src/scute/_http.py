@@ -6,7 +6,7 @@ import httpx
 
 from .errors import APIError, ConfigurationError, ConnectionError
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 
 class HTTP:

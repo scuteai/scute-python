@@ -7,4 +7,4 @@ from .errors import APIError, ConfigurationError, ConnectionError, InvalidToken,
 from .tokens import Session
 
 __all__ = ["APIError", "ConfigurationError", "ConnectionError", "Decision", "InvalidToken", "Scute", "ScuteError", "Session"]
-__version__ = "0.1.0"
+__version__ = "0.2.0"
