@@ -28,6 +28,7 @@ class Call:
         self.approved_by_user = approved_by_user
         self.mode: Mode = "enforce"
         self.clear = True
+        self.confirmation: str | None = None  # the person's confirmation this call would spend (guards.approval())
 
     def __repr__(self) -> str:
         return f"Call({self.tool!r}, id={self.id!r})"

@@ -51,6 +51,9 @@ class Scute:
         self.authz = Authz(self)
         self.agents = Agents(self)
 
+    def __repr__(self) -> str:
+        return f"Scute(app_id={self.app_id!r}, secret={'***' if self._secret else None})"
+
     @property
     def has_secret(self) -> bool:
         return bool(self._secret)

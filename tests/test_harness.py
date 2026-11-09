@@ -3,6 +3,8 @@ from __future__ import annotations
 import functools
 import json
 import threading
+import time
+import types
 from collections.abc import Iterator
 from typing import Any
 
@@ -197,6 +199,44 @@ def test_resumes_from_the_store_by_id_without_a_new_task() -> None:
     assert [c.auth for c in fake.paths(CHECK)] == ["Bearer sct_token1"] * 2
 
 
+def test_a_task_that_ran_out_is_minted_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = FakeAgentAPI()
+    h = harness(fake)
+    h.run(id="chat-1", acts_for="user1").check("read_invoice", {"id": 1})
+    key = "scute:run:support-bot:user1:chat-1"
+    state = json.loads(h.store.get(key) or "{}")
+    assert state["task_id"] == "task1"
+    h.store.set(key, json.dumps({**state, "expires_at": "2000-01-01T00:00:00Z"}), 60)
+    resumed = h.run(id="chat-1", acts_for="user1")
+    assert resumed.check("read_invoice", {"id": 2}).kind == "proceed"
+    assert len(fake.paths(MINT)) == 2
+    assert fake.paths(CHECK)[-1].auth == "Bearer sct_token2"
+
+    # It runs out between token() and Scute's answer: the 401 doesn't close the run (it wasn't
+    # revoked), and the next call starts a new task.
+    from scute.harness import run as run_module
+
+    now = [time.time()]
+    monkeypatch.setattr(run_module, "time", types.SimpleNamespace(time=lambda: now[0]))
+    fake2 = FakeAgentAPI()
+
+    def slow(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/agent/whoami"):
+            now[0] += 3600  # past the task's 30 minutes by the time Scute answers
+            fake2.revoked = True
+        return fake2.handler(request)
+
+    run = harness(fake2, transport=httpx.MockTransport(slow)).run(acts_for="user1")
+    run.check("read_invoice", {"id": 1})
+    with pytest.raises(APIError) as e:
+        run.whoami()
+    assert (e.value.status, e.value.code) == (401, "invalid_task_token")
+    assert "closed" not in run.snapshot()
+    fake2.revoked = False
+    assert run.check("read_invoice", {"id": 2}).kind == "proceed"
+    assert len(fake2.paths(MINT)) == 2
+
+
 def test_starts_a_new_task_when_the_old_one_expired_but_never_after_it_closed() -> None:
     fake = FakeAgentAPI(ttl=1)
     run = harness(fake).run(acts_for="user1")
@@ -376,6 +416,7 @@ def test_never_shows_a_token_or_the_secret() -> None:
     run.start_verification(method="email_otp", permission="invoice:read")
     shown = " ".join([repr(h), repr(run), json.dumps(run.snapshot()), repr(h.client), repr(h.spec("read_invoice"))])
     assert "sct_" not in shown and "sk_test" not in shown and "ch_ok" not in shown
+    assert repr(h.client) == "Scute(app_id='app1', secret=***)"
 
     fake.revoked = True
     with pytest.raises(APIError) as e:

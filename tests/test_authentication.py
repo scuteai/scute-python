@@ -63,7 +63,7 @@ def test_refuses_what_isnt_a_live_session_of_this_app(fake: FakeScute) -> None:
 def test_only_rs256(fake: FakeScute) -> None:
     claims = b64(json.dumps({"uuid": "user1", "aid": "app1", "exp": int(NOW) + 600}).encode())
     none = f"{b64(json.dumps({'alg': 'none'}).encode())}.{claims}."
-    assert reason(tokens(fake), none) in ("malformed", "algorithm")
+    assert reason(tokens(fake), none) == "algorithm"
 
     # HMAC signed with the public key as the secret (the classic confusion)
     head = b64(json.dumps({"alg": "HS256"}).encode())
@@ -97,6 +97,17 @@ def test_reads_who_is_really_acting(fake: FakeScute) -> None:
     assert session.authz_context() == {"impersonated": True, "actor": actor}
 
 
+@pytest.mark.parametrize(("imp", "impersonated"), [(True, True), ("true", True), ("t", True), (1, True), ("yes", True),
+                                                  (False, False), ("false", False), ("0", False), (0, False), ("", False),
+                                                  (None, False)])
+def test_reads_the_impersonation_flag_like_the_engine(fake: FakeScute, imp: Any, impersonated: bool) -> None:
+    # The same reading as decide_locally() (tests/test_local.py): a string "true" mustn't slip past
+    # a "not while impersonating" permission.
+    session = tokens(fake).verify(jwt(imp=imp))
+    assert session.impersonated is impersonated
+    assert bool(session.authz_context()) is impersonated
+
+
 def test_remote_catches_a_revoked_session(fake: FakeScute) -> None:
     t = tokens(fake)
     token = jwt()
@@ -114,5 +125,7 @@ def test_learns_the_public_app_id(fake: FakeScute) -> None:
     assert t.public_app_id == "app1"
 
 
-def test_real_clock_default() -> None:
-    assert Tokens.__init__.__defaults__ == (time.time,)
+def test_uses_the_real_clock_by_default(fake: FakeScute) -> None:
+    verifier = Tokens(client(fake))
+    assert reason(verifier, jwt(exp=int(time.time()) - 100)) == "expired"
+    assert verifier.verify(jwt(exp=int(time.time()) + 600)).user_id == "user1"

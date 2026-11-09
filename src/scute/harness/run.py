@@ -253,6 +253,12 @@ class Run:
             self._load()["confirmed"].append(fingerprint(tool, args))
             self._save()
 
+    def confirmation_for(self, call: Call) -> str | None:
+        """(For guards) the person's confirmation of this exact call, if there is
+        one, without spending it."""
+        mark = fingerprint(call.tool, call.args)
+        return mark if mark in self._load()["confirmed"] else None
+
     def consume_confirmation(self, call: Call) -> bool:
         """(For guards) spend a confirmation of this exact call, if there is one."""
         with self._lock:
@@ -305,6 +311,8 @@ class Run:
             # A call that may run takes its share of the budgets now, before the next check looks.
             if verdict.runs:
                 self._reserve(call)
+                if call.confirmation:
+                    self._spend_confirmation(call.confirmation)
             return verdict
 
     def after(self, tool: str, args: Mapping[str, Any] | None, result: Any, *, id: str | None = None,
@@ -446,6 +454,13 @@ class Run:
             left = max((until - time.time()) if until else 0.0, 0.0)
             # Kept a day past the task, so a conversation resumed later still has its counters.
             self.harness.store.set(self._key(), json.dumps(s), left + 86400)
+
+    def _spend_confirmation(self, mark: str) -> None:
+        with self._lock:
+            confirmed: list[str] = self._load()["confirmed"]
+            if mark in confirmed:
+                confirmed.remove(mark)
+                self._save()
 
     def _reserve(self, call: Call) -> None:
         with self._lock:

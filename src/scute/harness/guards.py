@@ -9,6 +9,7 @@ call.redirect(tool); None means proceed. A guard that raises counts as deny.
 from __future__ import annotations
 
 import dataclasses
+import math
 import re
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -158,8 +159,12 @@ class Approval(Guard):
     def before(self, call: Call) -> Decision | None:
         if not applies(call, self._when) or call.approved_by_user:
             return None
-        if call.mode == "enforce" and call.run.consume_confirmation(call):
-            return None
+        if call.mode == "enforce":
+            mark = call.run.confirmation_for(call)
+            if mark:
+                # Spent by Run.check only if the call runs: a later guard may still stop it.
+                call.confirmation = mark
+                return None
         text = f"Confirm: {describe_call(call.tool, call.args)}"
         return call.approve(self._message(text) if self._message else text)
 
@@ -280,6 +285,8 @@ class Grounding(Guard):
             return True
         if not _number(value):
             return re.search(rf"(?:\A|[^a-z0-9_]){re.escape(s)}(?![a-z0-9_])", text) is not None
+        if not math.isfinite(value):
+            return False
         forms = {str(value), f"{value:.2f}", f"{value:,}"}
         if value == int(value):
             forms.add(str(int(value)))
@@ -323,10 +330,19 @@ class Args(Guard):
 
     @staticmethod
     def _violation(field: str, value: Any, rule: ArgRule) -> str | None:
-        if _number(value):
-            if "max" in rule and value > rule["max"]:
+        number: float | None = value if _number(value) else None
+        if number is None and isinstance(value, str) and ("max" in rule or "min" in rule):
+            # Models often pass numbers as strings: "900" is held to the same cap as 900.
+            try:
+                number = float(value)
+            except ValueError:
+                number = math.nan
+            if not math.isfinite(number):
+                return f"{field} has to be a number."
+        if number is not None:
+            if "max" in rule and number > rule["max"]:
                 return f"{field} can be at most {rule['max']}."
-            if "min" in rule and value < rule["min"]:
+            if "min" in rule and number < rule["min"]:
                 return f"{field} has to be at least {rule['min']}."
         if isinstance(value, str):
             if "max_length" in rule and len(value) > rule["max_length"]:
