@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import httpx
 import pytest
 
-from scute import APIError, ConfigurationError, Scute
+from scute import APIError, ConfigurationError, ConnectionError, Scute
 
 from .conftest import FakeScute
 
@@ -63,7 +64,60 @@ def test_lists_and_merges_previous_accounts(fake: FakeScute) -> None:
     with pytest.raises(APIError) as again:
         c.users.merge("user1", "old1")
     assert (again.value.status, again.value.code) == (422, "already_merged")
-    assert len(fake.paths("/v1/app1/users/user1/merge")) == 2  # a POST isn't retried
+
+
+def test_retries_reads_once_on_a_network_error_and_never_a_plain_write() -> None:
+    attempts: list[str] = []
+
+    def flaky(request: httpx.Request) -> httpx.Response:
+        attempts.append(request.method)
+        if len(attempts) == 1:
+            raise httpx.ConnectError("reset", request=request)
+        return httpx.Response(200, json={"ok": True})
+
+    c = Scute(app_id="app1", secret="sk_test", base_url="https://scute.test", transport=httpx.MockTransport(flaky))
+    assert c.users.get("user1") == {"ok": True}
+    assert attempts == ["GET", "GET"]
+
+    attempts.clear()
+    with pytest.raises(ConnectionError, match="Couldn't reach Scute"):
+        c.users.merge("user1", "old1")
+    assert attempts == ["POST"]
+
+    attempts.clear()  # an authorization check is a POST that's safe to repeat
+    assert c.authz.check(user_id="user1", action="read", resource="invoice:1").reason is None
+    assert attempts == ["POST", "POST"]
+
+
+@pytest.mark.parametrize(("call", "method", "path", "body"), [
+    (lambda c: c.authz.check_batch([{"user_id": "u1", "action": "read", "resource": None}]), "POST",
+     "/v1/auth/app1/authz/check-batch", {"checks": [{"user_id": "u1", "action": "read"}]}),
+    (lambda c: c.authz.permissions("u 1", resource="doc:1"), "GET", "/v1/auth/app1/authz/users/u%201/permissions", None),
+    (lambda c: c.authz.authorized_users(action="read", limit=5), "GET", "/v1/auth/app1/authz/authorized-users", None),
+    (lambda c: c.users.invite("ada@example.com", meta={"plan": "pro"}), "POST", "/v1/app1/users/invite",
+     {"identifier": "ada@example.com", "user_meta": {"plan": "pro"}}),
+    (lambda c: c.users.activate("user1"), "POST", "/v1/app1/users/user1/activate", None),
+    (lambda c: c.users.delete("user1"), "DELETE", "/v1/app1/users/user1", None),
+    (lambda c: c.sessions.revoke("user1", "ses/1"), "DELETE", "/v1/app1/users/user1/sessions/ses%2F1", None),
+    (lambda c: c.agents.update("bot", name="Bot"), "PATCH", "/v1/apps/app1/authz/agents/bot", {"name": "Bot"}),
+    (lambda c: c.agents.delete("bot"), "DELETE", "/v1/apps/app1/authz/agents/bot", None),
+    (lambda c: c.agents.resume("bot"), "POST", "/v1/apps/app1/authz/agents/bot/resume", None),
+    (lambda c: c.agents.tasks("bot", status="open"), "GET", "/v1/apps/app1/authz/agents/bot/tasks", None),
+    (lambda c: c.agents.assertion("bot", "task1"), "GET", "/v1/apps/app1/authz/agents/bot/tasks/task1/assertion", None),
+])
+def test_thin_wrappers_send_the_right_request(call: Any, method: str, path: str, body: Any) -> None:
+    seen: list[httpx.Request] = []
+
+    def record(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={})
+
+    call(Scute(app_id="app1", secret="sk_test", base_url="https://scute.test", transport=httpx.MockTransport(record)))
+    assert len(seen) == 1
+    (request,) = seen
+    assert (request.method, request.url.raw_path.decode().split("?")[0]) == (method, path)
+    assert request.headers["authorization"] == "Bearer sk_test"
+    assert (json.loads(request.content) if request.content else None) == body
 
 
 def test_starts_lists_and_ends_sessions_as_a_user(fake: FakeScute) -> None:

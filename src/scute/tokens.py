@@ -14,6 +14,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from .errors import APIError, InvalidToken
+from .local import read_impersonated
 
 if TYPE_CHECKING:
     from .client import Scute
@@ -33,7 +34,9 @@ class Session:
 
     @property
     def impersonated(self) -> bool:
-        return self.claims.get("imp") is True
+        # Read like the engine and decide_locally() read context.impersonated, so
+        # "imp": "true" can't slip past a "not while impersonating" permission.
+        return read_impersonated(self.claims.get("imp"))
 
     def authz_context(self) -> dict[str, Any]:
         """Context for authorization checks made for this request: a

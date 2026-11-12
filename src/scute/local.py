@@ -109,7 +109,13 @@ def evaluate_condition(condition: dict[str, Any], attrs: dict[str, Any],
 
 
 def _impersonating(context: dict[str, Any] | None) -> bool:
-    v = (context or {}).get("impersonated")
+    return read_impersonated((context or {}).get("impersonated"))
+
+
+def read_impersonated(v: Any) -> bool:
+    """The impersonation flag read like the engine reads it (a Rails boolean):
+    True, 1, "true", "t", "yes" count; False, 0, "0", "f", "false", "off", ""
+    and None don't. Session tokens (Session.impersonated) read `imp` the same way."""
     if v is None or v == "":
         return False
     if isinstance(v, bool):

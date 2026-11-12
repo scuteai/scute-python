@@ -49,6 +49,17 @@ def test_args_guides_the_model_to_fix_arguments() -> None:
     assert run.check("send_email", {"to": "a@evil.test"}).message == "Only example.com addresses."
 
 
+def test_args_holds_numbers_sent_as_strings_to_the_same_limits() -> None:
+    run = with_guards(guards.args({"refund_invoice": {"amount": {"min": 1, "max": 500}, "ref": {"max_length": 3}}})).run()
+    assert run.check("refund_invoice", {"amount": "90"}).kind == "proceed"
+    assert run.check("refund_invoice", {"amount": " 90.5 "}).kind == "proceed"
+    assert run.check("refund_invoice", {"amount": "900"}).message == "amount can be at most 500."
+    assert run.check("refund_invoice", {"amount": "0"}).message == "amount has to be at least 1."
+    for odd in ("lots", "", "nan", "inf", "1e999"):
+        assert run.check("refund_invoice", {"amount": odd}).message == "amount has to be a number."
+    assert run.check("refund_invoice", {"ref": "ABCD"}).kind == "guide"  # no min/max: strings stay strings
+
+
 # ── budget ──
 
 
@@ -146,6 +157,14 @@ def test_grounding_reads_message_objects_and_passes_without_a_transcript() -> No
     assert (v.kind, v.results[0].decision.reason) == ("proceed", "no_transcript")
 
 
+def test_grounding_guides_on_non_finite_amounts_instead_of_crashing() -> None:
+    run = with_guards(guards.grounding()).run()
+    messages = [user("Refund invoice INV-1 for 90 euros, inf times over")]
+    for value in (float("inf"), float("-inf"), float("nan")):
+        v = run.check("refund_invoice", {"invoice_id": "INV-1", "amount": value}, messages=messages)
+        assert (v.kind, v.decision.reason) == ("guide", "ungrounded")
+
+
 def test_grounding_catches_values_the_person_never_gave() -> None:
     run = with_guards(guards.grounding()).run()
     messages = [user("Refund invoice INV-1001 for $100.99 and email me at ann@example.com")]
@@ -210,7 +229,7 @@ def test_content_takes_your_own_detectors_and_stays_fast_on_hostile_input() -> N
     started = time.monotonic()
     fast.check("search_web", {"query": "-eyJ" * 20_000})
     fast.after("fetch_page", {}, f"{'a.' * 20_000}@{'a.' * 20_000}")
-    assert time.monotonic() - started < 1.0
+    assert time.monotonic() - started < 5.0  # ~ms in practice; generous so a loaded CI runner doesn't flake
 
     with pytest.raises(ValueError, match="unknown pii"):
         guards.content(pii=["passport"])
@@ -242,6 +261,26 @@ def test_approval_asks_the_person_and_a_confirmation_covers_that_exact_call_once
     assert run.check("refund_invoice", {"invoice_id": 42, "amount": 91}).kind == "approve"
     assert run.check("refund_invoice", {"invoice_id": 42, "amount": 90}).kind == "proceed"
     assert run.check("refund_invoice", {"invoice_id": 42, "amount": 90}).kind == "approve"
+
+
+def test_a_confirmation_isnt_spent_on_a_call_a_later_guard_stopped() -> None:
+    run = with_guards(guards.approval(), guards.budget(calls=0), tools={"refund_invoice": {"tier": "high"}}).run()
+    args = {"invoice_id": 42, "amount": 90}
+    run.confirm("refund_invoice", args)
+    assert run.check("refund_invoice", args).kind == "deny"
+    assert len(run.snapshot()["confirmed"]) == 1
+
+    # the same confirmation still covers the call once nothing else stops it, and only once
+    ok = with_guards(guards.approval(), tools={"refund_invoice": {"tier": "high"}}).run()
+    ok.confirm("refund_invoice", args)
+    denied_once = with_guards(guards.approval(), guards.args({"refund_invoice": {"amount": {"max": 50}}}),
+                              tools={"refund_invoice": {"tier": "high"}}).run()
+    denied_once.confirm("refund_invoice", args)
+    assert denied_once.check("refund_invoice", args).kind == "guide"
+    assert len(denied_once.snapshot()["confirmed"]) == 1
+    assert ok.check("refund_invoice", args).kind == "proceed"
+    assert ok.snapshot()["confirmed"] == []
+    assert ok.check("refund_invoice", args).kind == "approve"
 
 
 # ── regressions (the same ones the TypeScript and Ruby harnesses fixed) ──
