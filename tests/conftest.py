@@ -53,6 +53,16 @@ class FakeScute:
     def paths(self, path: str) -> list[httpx.Request]:
         return [r for r in self.seen if r.url.path == path]
 
+    @staticmethod
+    def decide(check: dict[str, Any]) -> dict[str, Any]:
+        if check["action"] == "delete":
+            return {"decision": "deny", "reason": "no_role_grants_permission", "explanation": "Ada can't delete invoices."}
+        if check["action"] == "pay":
+            return {"decision": "allow_with_step_up", "reason": "verification_required", "step_up": {"method": "any"}}
+        if check["action"] == "approve":
+            return {"decision": "allow_with_approval", "reason": "approval_required", "approval": {"by": "reviewer"}}
+        return {"decision": "allow", "reason": "role_grant", "permission": "invoice:read", "roles": ["clerk"]}
+
     def handler(self, request: httpx.Request) -> httpx.Response:
         self.seen.append(request)
         path, method = request.url.path, request.method
@@ -75,13 +85,12 @@ class FakeScute:
             return ok({"user": {"id": "user1"}})
         if path == "/v1/auth/app1/tokens/refresh":
             return ok({"access": "new", "seen_refresh": request.headers.get("x-refresh-token")})
-        if path == "/v1/auth/app1/authz/check":
-            if body["action"] == "delete":
-                return ok({"decision": "deny", "reason": "no_role_grants_permission", "explanation": "Ada can't delete invoices.",
-                           "echo": body})
-            return ok({"decision": "allow", "reason": "role_grant", "permission": "invoice:read", "roles": ["clerk"], "echo": body})
         if not secret:
             return ok({"error": "Unauthorized"}, 401)
+        if path == "/v1/auth/app1/authz/check":
+            return ok({**self.decide(body), "echo": body})
+        if path == "/v1/auth/app1/authz/check-batch":
+            return ok({"results": [self.decide(check) for check in body["checks"]]})
         if path == "/v1/app1/users" and method == "GET":
             query = {k: v[0] for k, v in parse_qs(urlparse(str(request.url)).query).items()}
             if "q" not in query:
@@ -112,6 +121,14 @@ class FakeScute:
         if path == "/v1/apps/app1/users/user1/impersonate" and method == "DELETE":
             return ok({"ended": 1})
         return ok({"error": f"no route {method} {path}"}, 404)
+
+
+@pytest.fixture(autouse=True)
+def no_scute_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Scute() falls back to SCUTE_APP_ID / SCUTE_SECRET / SCUTE_BASE_URL: a developer's
+    shell mustn't change what a test sees (e.g. "no secret" turning into a real key)."""
+    for name in ("SCUTE_APP_ID", "SCUTE_SECRET", "SCUTE_BASE_URL"):
+        monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture

@@ -4,7 +4,6 @@ import dataclasses
 import json
 import threading
 import time
-from collections.abc import Iterator
 from typing import Any
 from urllib.parse import urlparse
 
@@ -14,12 +13,6 @@ import pytest
 from scute.harness import Harness, guards
 
 from .harness_fake import AUTH, FakeAgentAPI, harness
-
-
-@pytest.fixture(autouse=True)
-def no_env_secret(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.delenv("SCUTE_SECRET", raising=False)
-    yield
 
 
 def with_guards(*gs: guards.Guard, **options: Any) -> Harness:

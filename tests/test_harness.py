@@ -5,7 +5,6 @@ import json
 import threading
 import time
 import types
-from collections.abc import Iterator
 from typing import Any
 
 import httpx
@@ -15,12 +14,6 @@ from scute import APIError, ConfigurationError, ConnectionError
 from scute.harness import Harness, ToolSpec, Verdict, guards, permission_for
 
 from .harness_fake import AUTH, CHECK, MINT, FakeAgentAPI, harness
-
-
-@pytest.fixture(autouse=True)
-def no_env_secret(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.delenv("SCUTE_SECRET", raising=False)
-    yield
 
 
 def in_threads(*calls: Any) -> list[Any]:
