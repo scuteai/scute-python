@@ -107,7 +107,7 @@ def test_fastapi_fills_it_from_the_request(fake: FakeScute) -> None:
     assert TestClient(app).post("/signup").status_code == 200
     assert HEADER not in fake.seen[-1].headers
     # A forwarded-for header isn't read: only what the server says the peer is.
-    web.post("/signup", headers={"X-Forwarded-For": "198.51.100.7"})
+    assert web.post("/signup", headers={"X-Forwarded-For": "198.51.100.7"}).status_code == 200
     assert sent_ip(fake) == "203.0.113.24"
 
 
@@ -125,11 +125,11 @@ def test_flask_fills_it_from_the_request(fake: FakeScute) -> None:
         return {"refunded": id}
 
     web = app.test_client()
-    web.post("/signup", environ_base={"REMOTE_ADDR": "203.0.113.24"})
+    assert web.post("/signup", environ_base={"REMOTE_ADDR": "203.0.113.24"}).status_code == 200
     assert sent_ip(fake) == "203.0.113.24"
     res = web.post("/invoices/7/refund", headers={"X-Authorization": token(), "X-Forwarded-For": "198.51.100.7"},
                    environ_base={"REMOTE_ADDR": "2001:db8::1"})
     assert res.get_json() == {"refunded": "7"}
     assert sent_ip(fake) == "2001:db8::1"
-    web.post("/signup", environ_base={"REMOTE_ADDR": "not-an-ip"})
+    assert web.post("/signup", environ_base={"REMOTE_ADDR": "not-an-ip"}).status_code == 200
     assert HEADER not in fake.seen[-1].headers

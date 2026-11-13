@@ -153,3 +153,39 @@ def test_errors(fake: FakeScute) -> None:
     with pytest.raises(APIError) as e:
         client(fake, secret="sk_wrong").users.get("user1")
     assert e.value.status == 401
+
+
+def test_reads_each_kind_of_decision(fake: FakeScute) -> None:
+    c = client(fake)
+    allow = c.authz.check(user_id="user1", action="read", resource="invoice:1")
+    assert (allow.allowed, allow.needs_step_up, allow.needs_approval) == (True, False, False)
+    assert (allow.reason, allow.permission, allow.roles) == ("role_grant", "invoice:read", ["clerk"])
+    deny = c.authz.check(user_id="user1", action="delete", resource="invoice:1")
+    assert (deny.allowed, deny.explanation) == (False, "Ada can't delete invoices.")
+    step_up = c.authz.check(user_id="user1", action="pay", resource="invoice:1")
+    assert (step_up.allowed, step_up.needs_step_up, step_up.step_up) == (False, True, {"method": "any"})
+    approval = c.authz.check(user_id="user1", action="approve", resource="invoice:1")
+    assert (approval.allowed, approval.needs_approval, approval.approval) == (False, True, {"by": "reviewer"})
+    assert fake.paths("/v1/auth/app1/authz/check")[-1].headers["authorization"] == "Bearer sk_test"
+
+
+def test_checks_in_a_batch_and_keeps_the_order(fake: FakeScute) -> None:
+    c = client(fake)
+    got = c.authz.check_batch([{"user_id": "user1", "action": a, "resource": "invoice:1"} for a in ("read", "pay", "delete")])
+    assert [d.decision for d in got] == ["allow", "allow_with_step_up", "deny"]
+    with pytest.raises(ValueError, match="at most 100"):
+        c.authz.check_batch([{"user_id": "user1", "action": "read"}] * (c.authz.BATCH_LIMIT + 1))
+    assert len(fake.paths("/v1/auth/app1/authz/check-batch")) == 1  # the oversized batch wasn't sent
+
+
+def test_reads_its_configuration_from_the_environment(fake: FakeScute, monkeypatch: pytest.MonkeyPatch) -> None:
+    with pytest.raises(ConfigurationError, match="SCUTE_APP_ID"):
+        Scute()
+    monkeypatch.setenv("SCUTE_APP_ID", "app1")
+    monkeypatch.setenv("SCUTE_SECRET", "sk_test")
+    monkeypatch.setenv("SCUTE_BASE_URL", "https://scute.test/")
+    c = Scute(transport=httpx.MockTransport(fake.handler))
+    assert (c.app_id, c.has_secret, repr(c)) == ("app1", True, "Scute(app_id='app1', secret=***)")
+    c.users.get("user1")
+    assert str(fake.seen[-1].url) == "https://scute.test/v1/app1/users/user1"
+    assert fake.seen[-1].headers["authorization"] == "Bearer sk_test"
